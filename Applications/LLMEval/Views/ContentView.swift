@@ -4,11 +4,13 @@ import MLX
 import MLXLLM
 import MLXLMCommon
 import Metal
+import SwiftData
 import SwiftUI
 import Tokenizers
 
 struct ContentView: View {
     @Environment(DeviceStat.self) private var deviceStat
+    @Environment(\.modelContext) private var modelContext
 
     @State var llm = LLMEvaluator()
 
@@ -65,20 +67,6 @@ struct ContentView: View {
         #else
             .padding()
         #endif
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    Task {
-                        copyToClipboard(llm.output)
-                    }
-                } label: {
-                    Label("Copy Output", systemImage: "doc.on.doc.fill")
-                }
-                .disabled(llm.output == "")
-                .labelStyle(.titleAndIcon)
-            }
-
-        }
         .task {
             do {
                 // pre-load the weights on launch to speed up the first generation
@@ -86,6 +74,15 @@ struct ContentView: View {
             } catch {
                 llm.output = "Failed: \(error)"
             }
+        }
+        .onChange(of: llm.running) { wasRunning, isRunning in
+            guard wasRunning && !isRunning else { return }
+            guard llm.totalTokens > 0,
+                  !llm.output.isEmpty,
+                  !llm.output.hasPrefix("Failed:"),
+                  !llm.lastGeneratedPrompt.isEmpty
+            else { return }
+            saveResult()
         }
         .sheet(isPresented: $showingPresetPrompts) {
             PresetPromptsSheet(isPresented: $showingPresetPrompts) { preset in
@@ -113,12 +110,23 @@ struct ContentView: View {
         llm.cancelGeneration()
     }
 
-    private func copyToClipboard(_ string: String) {
-        #if os(macOS)
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(string, forType: .string)
-        #else
-            UIPasteboard.general.string = string
-        #endif
+    private func saveResult() {
+        let result = InferenceResult(
+            modelId: llm.modelConfiguration.name,
+            modelName: llm.modelConfiguration.name
+                .components(separatedBy: "/").last ?? llm.modelConfiguration.name,
+            prompt: llm.lastGeneratedPrompt,
+            output: llm.output,
+            thinkingEnabled: llm.enableThinking,
+            toolsEnabled: llm.includeWeatherTool,
+            tokensPerSecond: llm.tokensPerSecond,
+            timeToFirstToken: llm.timeToFirstToken,
+            promptTokens: llm.promptLength,
+            generatedTokens: llm.totalTokens,
+            totalTime: llm.totalTime,
+            maxTokens: llm.maxTokens,
+            wasTruncated: llm.wasTruncated
+        )
+        BenchmarkStore.save(result, in: modelContext)
     }
 }

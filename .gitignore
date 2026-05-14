@@ -95,3 +95,6 @@ iOSInjectionProject/
 .idea
 .vscode
 
+# Local docs (not for public repo)
+docs/
+

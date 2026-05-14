@@ -23,6 +23,10 @@ class MLXService {
     static let availableModels: [LMModel] = [
         LMModel(name: "llama3.2:1b", configuration: LLMRegistry.llama3_2_1B_4bit, type: .llm),
         LMModel(name: "qwen2.5:1.5b", configuration: LLMRegistry.qwen2_5_1_5b, type: .llm),
+        LMModel(
+            name: "qwen2.5:3b",
+            configuration: ModelConfiguration(id: "mlx-community/Qwen2.5-3B-Instruct-4bit"),
+            type: .llm),
         LMModel(name: "smolLM:135m", configuration: LLMRegistry.smolLM_135M_4bit, type: .llm),
         LMModel(name: "qwen3:0.6b", configuration: LLMRegistry.qwen3_0_6b_4bit, type: .llm),
         LMModel(name: "qwen3:1.7b", configuration: LLMRegistry.qwen3_1_7b_4bit, type: .llm),
@@ -33,6 +37,10 @@ class MLXService {
         LMModel(name: "qwen2VL:2b", configuration: VLMRegistry.qwen2VL2BInstruct4Bit, type: .vlm),
         LMModel(name: "smolVLM", configuration: VLMRegistry.smolvlminstruct4bit, type: .vlm),
         LMModel(name: "acereason:7B", configuration: LLMRegistry.acereason_7b_4bit, type: .llm),
+        LMModel(
+            name: "qwen3.5:2b",
+            configuration: ModelConfiguration(id: "mlx-community/Qwen3.5-2B-MLX-4bit"),
+            type: .llm),
         LMModel(name: "gemma3n:E2B", configuration: LLMRegistry.gemma3n_E2B_it_lm_4bit, type: .llm),
         LMModel(name: "gemma3n:E4B", configuration: LLMRegistry.gemma3n_E4B_it_lm_4bit, type: .llm),
     ]

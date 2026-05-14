@@ -21,6 +21,7 @@ class LLMEvaluator {
     var maxTokens = 2048
 
     var prompt = ""
+    var lastGeneratedPrompt = ""
     var output = ""
     var modelInfo = ""
 
@@ -46,8 +47,44 @@ class LLMEvaluator {
     private var generationTimer: Timer?
     private var firstTokenTime: TimeInterval = 0
 
+    struct EvalModel: Identifiable {
+        let configuration: ModelConfiguration
+        let size: String
+        var id: String { configuration.name }
+        var shortName: String { configuration.name.components(separatedBy: "/").last ?? configuration.name }
+    }
+
+    static let availableModels: [EvalModel] = [
+        EvalModel(configuration: LLMRegistry.smolLM_135M_4bit,    size: "90 MB"),
+        EvalModel(configuration: LLMRegistry.qwen3_0_6b_4bit,     size: "390 MB"),
+        EvalModel(configuration: LLMRegistry.qwen3_1_7b_4bit,     size: "1.1 GB"),
+        EvalModel(configuration: LLMRegistry.gemma3_1B_qat_4bit,  size: "700 MB"),
+        EvalModel(configuration: LLMRegistry.llama3_2_1B_4bit,    size: "800 MB"),
+        EvalModel(configuration: LLMRegistry.llama3_2_3B_4bit,    size: "1.8 GB"),
+        EvalModel(configuration: ModelConfiguration(id: "mlx-community/Qwen3.5-2B-4bit"), size: "1.4 GB"),
+        EvalModel(configuration: LLMRegistry.phi3_5_4bit,         size: "2.2 GB"),
+        EvalModel(configuration: LLMRegistry.qwen3_4b_4bit,       size: "2.5 GB"),
+        EvalModel(configuration: LLMRegistry.gemma4_e4b_it_4bit,  size: "8.5 GB"),
+        EvalModel(configuration: LLMRegistry.qwen3_8b_4bit,       size: "5.0 GB"),
+        EvalModel(configuration: LLMRegistry.deepSeekR1_7B_4bit,  size: "4.4 GB"),
+        EvalModel(configuration: LLMRegistry.llama3_1_8B_4bit,    size: "4.9 GB"),
+        EvalModel(configuration: LLMRegistry.mistral7B4bit,       size: "4.1 GB"),
+    ]
+
     /// This controls which model loads.
-    var modelConfiguration = LLMRegistry.qwen3_8b_4bit
+    var modelConfiguration = LLMRegistry.qwen3_8b_4bit {
+        didSet {
+            guard modelConfiguration.name != oldValue.name else { return }
+            loadState = .idle
+            modelInfo = ""
+            output = ""
+            Task {
+                do { _ = try await load() } catch {
+                    output = "Failed: \(error)"
+                }
+            }
+        }
+    }
 
     /// Parameters controlling the generation output (max tokens and temperature).
     var generateParameters: GenerateParameters {
@@ -371,6 +408,8 @@ class LLMEvaluator {
 
         let currentPrompt = prompt
         guard !currentPrompt.isEmpty else { return }
+
+        lastGeneratedPrompt = currentPrompt
 
         generationTask = Task {
             running = true

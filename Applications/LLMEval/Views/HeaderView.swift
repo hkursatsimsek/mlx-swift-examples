@@ -9,16 +9,34 @@ struct HeaderView: View {
     @Environment(\.horizontalSizeClass) var horizontalSizeClass
 
     var status: some View {
-        // Model info with status
         HStack {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Model")
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
-                Text(llm.modelInfo)
-                    .font(.headline)
-                    .lineLimit(1)
+                Picker("Model", selection: Binding(
+                    get: { llm.modelConfiguration.name },
+                    set: { name in
+                        if let evalModel = LLMEvaluator.availableModels.first(where: { $0.id == name }) {
+                            llm.modelConfiguration = evalModel.configuration
+                        }
+                    }
+                )) {
+                    ForEach(LLMEvaluator.availableModels) { evalModel in
+                        Text("\(evalModel.shortName)  ·  \(evalModel.size)")
+                            .tag(evalModel.id)
+                    }
+                }
+                .labelsHidden()
+                .disabled(llm.running || llm.isLoading)
+
+                if !llm.modelInfo.isEmpty {
+                    Text(llm.modelInfo)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
             }
 
             Spacer()
