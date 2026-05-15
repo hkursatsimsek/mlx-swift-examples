@@ -30,7 +30,7 @@ class ChatViewModel {
     ]
 
     /// Currently selected language model for generation
-    var selectedModel: LMModel = MLXService.availableModels.first!
+    var selectedModel: LMModel = MLXService.availableModels.first { $0.name == "qwen3.5:2b" } ?? MLXService.availableModels.first!
 
     /// Manages image and video attachments for the current message
     var mediaSelection = MediaSelection()
