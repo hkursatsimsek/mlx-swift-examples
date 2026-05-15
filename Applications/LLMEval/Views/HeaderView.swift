@@ -24,14 +24,19 @@ struct HeaderView: View {
                     }
                 )) {
                     ForEach(LLMEvaluator.availableModels) { evalModel in
-                        Text("\(evalModel.shortName)  ·  \(evalModel.size)")
+                        Text("\(evalModel.isCompatibleWithDevice ? "" : "⚠️ ")\(evalModel.shortName)  ·  \(evalModel.size)")
                             .tag(evalModel.id)
                     }
                 }
                 .labelsHidden()
                 .disabled(llm.running || llm.isLoading)
 
-                if !llm.modelInfo.isEmpty {
+                if let warning = llm.memoryWarning {
+                    Label(warning, systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else if !llm.modelInfo.isEmpty {
                     Text(llm.modelInfo)
                         .font(.caption)
                         .foregroundStyle(.secondary)

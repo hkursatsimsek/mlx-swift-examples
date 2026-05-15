@@ -39,6 +39,9 @@ class LLMEvaluator {
     // Track if generation was truncated due to hitting max tokens
     var wasTruncated: Bool = false
 
+    // Warning shown when selected model may exceed device memory
+    var memoryWarning: String? = nil
+
     // Timer for tracking TTFT in real-time
     private var ttftTimer: Timer?
     private var generationStartTime: TimeInterval = 0
@@ -50,39 +53,62 @@ class LLMEvaluator {
     struct EvalModel: Identifiable {
         let configuration: ModelConfiguration
         let size: String
+        let minimumDeviceRAMGB: Int
         var id: String { configuration.name }
         var shortName: String { configuration.name.components(separatedBy: "/").last ?? configuration.name }
+
+        var isCompatibleWithDevice: Bool {
+            LLMEvaluator.deviceRAMGB >= minimumDeviceRAMGB
+        }
     }
 
+    static let deviceRAMGB: Int = Int(ProcessInfo.processInfo.physicalMemory / (1024 * 1024 * 1024))
+
     static let availableModels: [EvalModel] = [
-        EvalModel(configuration: LLMRegistry.smolLM_135M_4bit,    size: "90 MB"),
-        EvalModel(configuration: LLMRegistry.qwen3_0_6b_4bit,     size: "390 MB"),
-        EvalModel(configuration: LLMRegistry.qwen3_1_7b_4bit,     size: "1.1 GB"),
-        EvalModel(configuration: LLMRegistry.gemma3_1B_qat_4bit,  size: "700 MB"),
-        EvalModel(configuration: LLMRegistry.llama3_2_1B_4bit,    size: "800 MB"),
-        EvalModel(configuration: LLMRegistry.llama3_2_3B_4bit,    size: "1.8 GB"),
-        EvalModel(configuration: ModelConfiguration(id: "mlx-community/Qwen3.5-2B-4bit"), size: "1.4 GB"),
-        EvalModel(configuration: LLMRegistry.phi3_5_4bit,         size: "2.2 GB"),
-        EvalModel(configuration: LLMRegistry.qwen3_4b_4bit,       size: "2.5 GB"),
-        EvalModel(configuration: LLMRegistry.gemma4_e4b_it_4bit,  size: "8.5 GB"),
-        EvalModel(configuration: LLMRegistry.qwen3_8b_4bit,       size: "5.0 GB"),
-        EvalModel(configuration: LLMRegistry.deepSeekR1_7B_4bit,  size: "4.4 GB"),
-        EvalModel(configuration: LLMRegistry.llama3_1_8B_4bit,    size: "4.9 GB"),
-        EvalModel(configuration: LLMRegistry.mistral7B4bit,       size: "4.1 GB"),
+        EvalModel(configuration: LLMRegistry.smolLM_135M_4bit,    size: "90 MB",   minimumDeviceRAMGB: 2),
+        EvalModel(configuration: LLMRegistry.qwen3_0_6b_4bit,     size: "390 MB",  minimumDeviceRAMGB: 2),
+        EvalModel(configuration: LLMRegistry.gemma3_1B_qat_4bit,  size: "700 MB",  minimumDeviceRAMGB: 2),
+        EvalModel(configuration: LLMRegistry.llama3_2_1B_4bit,    size: "800 MB",  minimumDeviceRAMGB: 2),
+        EvalModel(configuration: LLMRegistry.qwen3_1_7b_4bit,     size: "1.1 GB",  minimumDeviceRAMGB: 4),
+        EvalModel(configuration: ModelConfiguration(id: "mlx-community/Qwen3.5-2B-4bit"), size: "1.4 GB", minimumDeviceRAMGB: 4),
+        EvalModel(configuration: LLMRegistry.llama3_2_3B_4bit,    size: "1.8 GB",  minimumDeviceRAMGB: 4),
+        EvalModel(configuration: LLMRegistry.phi3_5_4bit,         size: "2.2 GB",  minimumDeviceRAMGB: 6),
+        EvalModel(configuration: LLMRegistry.qwen3_4b_4bit,       size: "2.5 GB",  minimumDeviceRAMGB: 6),
+        EvalModel(configuration: LLMRegistry.mistral7B4bit,       size: "4.1 GB",  minimumDeviceRAMGB: 8),
+        EvalModel(configuration: LLMRegistry.gemma4_e2b_it_4bit,  size: "4.2 GB",  minimumDeviceRAMGB: 8),
+        EvalModel(configuration: LLMRegistry.deepSeekR1_7B_4bit,  size: "4.4 GB",  minimumDeviceRAMGB: 8),
+        EvalModel(configuration: LLMRegistry.llama3_1_8B_4bit,    size: "4.9 GB",  minimumDeviceRAMGB: 8),
+        EvalModel(configuration: LLMRegistry.qwen3_8b_4bit,       size: "5.0 GB",  minimumDeviceRAMGB: 8),
+        EvalModel(configuration: LLMRegistry.gemma4_e4b_it_4bit,  size: "8.5 GB",  minimumDeviceRAMGB: 16),
     ]
 
     /// This controls which model loads.
-    var modelConfiguration = LLMRegistry.qwen3_8b_4bit {
+    var modelConfiguration = ModelConfiguration(id: "mlx-community/Qwen3.5-2B-4bit") {
         didSet {
             guard modelConfiguration.name != oldValue.name else { return }
             loadState = .idle
             modelInfo = ""
             output = ""
+
+            if let evalModel = Self.availableModels.first(where: { $0.id == modelConfiguration.name }),
+               !evalModel.isCompatibleWithDevice {
+                memoryWarning = "Bu model en az \(evalModel.minimumDeviceRAMGB) GB RAM gerektiriyor. Cihazınızda \(Self.deviceRAMGB) GB var."
+                return
+            }
+
+            memoryWarning = nil
             Task {
                 do { _ = try await load() } catch {
-                    output = "Failed: \(error)"
+                    output = error.localizedDescription
                 }
             }
+        }
+    }
+
+    init() {
+        if let evalModel = Self.availableModels.first(where: { $0.id == modelConfiguration.name }),
+           !evalModel.isCompatibleWithDevice {
+            memoryWarning = "Bu model en az \(evalModel.minimumDeviceRAMGB) GB RAM gerektiriyor. Cihazınızda \(Self.deviceRAMGB) GB var."
         }
     }
 
@@ -135,6 +161,18 @@ class LLMEvaluator {
     }
 
     private func performLoad() async throws -> ModelContainer {
+        if let evalModel = Self.availableModels.first(where: { $0.id == modelConfiguration.name }),
+           !evalModel.isCompatibleWithDevice {
+            throw NSError(
+                domain: "LLMEvaluator",
+                code: -2,
+                userInfo: [
+                    NSLocalizedDescriptionKey:
+                        "Yetersiz cihaz belleği. Bu model \(evalModel.minimumDeviceRAMGB) GB RAM gerektiriyor ancak cihazınızda yalnızca \(Self.deviceRAMGB) GB var."
+                ]
+            )
+        }
+
         loadState = .loading
         modelInfo = "Downloading \(modelName)..."
         downloadProgress = 0.0
@@ -384,7 +422,7 @@ class LLMEvaluator {
             ttftTimer = nil
             generationTimer?.invalidate()
             generationTimer = nil
-            output = "Failed: \(error)"
+            output = error.localizedDescription
         }
     }
 

@@ -68,11 +68,11 @@ struct ContentView: View {
             .padding()
         #endif
         .task {
+            guard llm.memoryWarning == nil else { return }
             do {
-                // pre-load the weights on launch to speed up the first generation
                 _ = try await llm.load()
             } catch {
-                llm.output = "Failed: \(error)"
+                llm.output = error.localizedDescription
             }
         }
         .onChange(of: llm.running) { wasRunning, isRunning in

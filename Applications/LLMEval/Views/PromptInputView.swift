@@ -66,7 +66,7 @@ struct PromptInputView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .keyboardShortcut(.return, modifiers: .command)
-                .disabled((llm.prompt.isEmpty && !llm.running) || llm.isLoading)
+                .disabled((llm.prompt.isEmpty && !llm.running) || llm.isLoading || llm.memoryWarning != nil)
             }
         }
         .padding(.vertical, 8)
