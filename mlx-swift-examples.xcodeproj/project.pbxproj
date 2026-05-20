@@ -315,6 +315,7 @@
 				LLMEval/Views/OutputView.swift,
 				LLMEval/Views/PresetPromptsSheet.swift,
 				LLMEval/Views/PromptInputView.swift,
+				LLMEval/Views/UnsupportedDeviceView.swift,
 			);
 			target = C3A8B3DB2B92A29D0002EFB8 /* LLMEval */;
 		};
@@ -339,6 +340,7 @@
 				MLXChatExample/Views/Toolbar/DownloadProgressView.swift,
 				MLXChatExample/Views/Toolbar/ErrorView.swift,
 				MLXChatExample/Views/Toolbar/GenerationInfoView.swift,
+				MLXChatExample/Views/UnsupportedDeviceView.swift,
 			);
 			target = 0F5AD7402DB70C0300745C06 /* MLXChatExample */;
 		};

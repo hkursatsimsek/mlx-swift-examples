@@ -64,6 +64,12 @@ class LLMEvaluator {
 
     static let deviceRAMGB: Int = Int(ProcessInfo.processInfo.physicalMemory / (1024 * 1024 * 1024))
 
+    // MLX requires Apple GPU Family 7+ (A14 Bionic / iPhone 12 minimum)
+    static let isGPUFamilySupported: Bool = {
+        guard let device = MTLCreateSystemDefaultDevice() else { return false }
+        return device.supportsFamily(.apple7)
+    }()
+
     static let availableModels: [EvalModel] = [
         EvalModel(configuration: LLMRegistry.smolLM_135M_4bit,    size: "90 MB",   minimumDeviceRAMGB: 2),
         EvalModel(configuration: LLMRegistry.qwen3_0_6b_4bit,     size: "390 MB",  minimumDeviceRAMGB: 2),

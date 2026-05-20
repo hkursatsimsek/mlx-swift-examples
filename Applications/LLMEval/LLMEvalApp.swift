@@ -7,22 +7,26 @@ import SwiftUI
 struct LLMEvalApp: App {
     var body: some Scene {
         WindowGroup {
-            TabView {
-                NavigationStack {
-                    ContentView()
-                }
-                .tabItem {
-                    Label("Evaluate", systemImage: "waveform.and.magnifyingglass")
-                }
+            if LLMEvaluator.isGPUFamilySupported {
+                TabView {
+                    NavigationStack {
+                        ContentView()
+                    }
+                    .tabItem {
+                        Label("Evaluate", systemImage: "waveform.and.magnifyingglass")
+                    }
 
-                NavigationStack {
-                    ComparisonView()
+                    NavigationStack {
+                        ComparisonView()
+                    }
+                    .tabItem {
+                        Label("Compare", systemImage: "chart.bar.doc.horizontal")
+                    }
                 }
-                .tabItem {
-                    Label("Compare", systemImage: "chart.bar.doc.horizontal")
-                }
+                .environment(DeviceStat())
+            } else {
+                UnsupportedDeviceView()
             }
-            .environment(DeviceStat())
         }
         .modelContainer(for: InferenceResult.self)
     }
