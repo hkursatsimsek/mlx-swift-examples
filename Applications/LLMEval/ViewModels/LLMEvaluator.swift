@@ -82,10 +82,12 @@ class LLMEvaluator {
         EvalModel(configuration: LLMRegistry.qwen3_4b_4bit,       size: "2.5 GB",  minimumDeviceRAMGB: 6),
         EvalModel(configuration: LLMRegistry.mistral7B4bit,       size: "4.1 GB",  minimumDeviceRAMGB: 8),
         EvalModel(configuration: LLMRegistry.gemma4_e2b_it_4bit,  size: "4.2 GB",  minimumDeviceRAMGB: 8),
+        EvalModel(configuration: ModelConfiguration(id: "unsloth/gemma-4-E2B-it-UD-MLX-4bit"), size: "4.2 GB", minimumDeviceRAMGB: 6),
         EvalModel(configuration: LLMRegistry.deepSeekR1_7B_4bit,  size: "4.4 GB",  minimumDeviceRAMGB: 8),
         EvalModel(configuration: LLMRegistry.llama3_1_8B_4bit,    size: "4.9 GB",  minimumDeviceRAMGB: 8),
         EvalModel(configuration: LLMRegistry.qwen3_8b_4bit,       size: "5.0 GB",  minimumDeviceRAMGB: 8),
         EvalModel(configuration: LLMRegistry.gemma4_e4b_it_4bit,  size: "8.5 GB",  minimumDeviceRAMGB: 16),
+        EvalModel(configuration: ModelConfiguration(id: "unsloth/Qwen3.6-35B-A3B-UD-MLX-3bit"), size: "~13 GB", minimumDeviceRAMGB: 16),
     ]
 
     /// This controls which model loads.

@@ -44,6 +44,14 @@ class MLXService {
         LMModel(name: "gemma3n:E2B", configuration: LLMRegistry.gemma3n_E2B_it_lm_4bit, type: .llm),
         LMModel(name: "gemma3n:E4B", configuration: LLMRegistry.gemma3n_E4B_it_lm_4bit, type: .llm),
         LMModel(name: "gemma4:E2B", configuration: LLMRegistry.gemma4_e2b_it_4bit, type: .llm),
+        LMModel(
+            name: "gemma4:E2B-UD-4bit",
+            configuration: ModelConfiguration(id: "unsloth/gemma-4-E2B-it-UD-MLX-4bit"),
+            type: .llm),
+        LMModel(
+            name: "qwen3.6:35B-A3B-3bit",
+            configuration: ModelConfiguration(id: "unsloth/Qwen3.6-35B-A3B-UD-MLX-3bit"),
+            type: .llm),
     ]
 
     /// Cache to store loaded model containers to avoid reloading.
