@@ -10,6 +10,8 @@ struct PromptInputView: View {
     let onGenerate: () -> Void
     let onCancel: () -> Void
 
+    @FocusState private var isFocused: Bool
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             // Prompt header with expand/collapse chevron
@@ -38,7 +40,11 @@ struct PromptInputView: View {
                 .textFieldStyle(.roundedBorder)
                 .lineLimit(isPromptExpanded ? 15 ... 50 : 1 ... 3)
                 .frame(height: isPromptExpanded ? 400 : nil)
-                .onSubmit(onGenerate)
+                .focused($isFocused)
+                .onSubmit {
+                    isFocused = false
+                    onGenerate()
+                }
                 .disabled(llm.running || llm.isLoading)
 
             // Action buttons
@@ -56,6 +62,7 @@ struct PromptInputView: View {
                     if llm.running {
                         onCancel()
                     } else {
+                        isFocused = false
                         onGenerate()
                     }
                 } label: {

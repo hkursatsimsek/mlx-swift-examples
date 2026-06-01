@@ -10,6 +10,7 @@ import SwiftUI
 struct PromptField: View {
     @Binding var prompt: String
     @State private var task: Task<Void, Never>?
+    @FocusState private var isFocused: Bool
 
     let sendButtonAction: () async -> Void
     let mediaButtonAction: (() -> Void)?
@@ -24,12 +25,14 @@ struct PromptField: View {
 
             TextField("Prompt", text: $prompt)
                 .textFieldStyle(.roundedBorder)
+                .focused($isFocused)
 
             Button {
                 if isRunning {
                     task?.cancel()
                     removeTask()
                 } else {
+                    isFocused = false
                     task = Task {
                         await sendButtonAction()
                         removeTask()
