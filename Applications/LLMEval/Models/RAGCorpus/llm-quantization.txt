@@ -1,0 +1,25 @@
+LLM Quantization
+
+Quantization reduces the precision of neural network weights from 32-bit or 16-bit floating point to lower bit representations such as 8-bit integers (INT8) or 4-bit integers (INT4). This dramatically reduces model size and memory usage while maintaining most of the original model quality.
+
+Why quantization matters for on-device AI:
+- A 7-billion parameter model in float16 requires approximately 14 GB of RAM.
+- The same model in 4-bit quantization requires approximately 3.5-4 GB of RAM.
+- This makes it possible to run models on devices with 8 GB of unified memory (e.g., iPhone 15 Pro, MacBook Air M2).
+
+Common quantization formats:
+
+GGUF: A file format used by llama.cpp. Supports Q4_K_M, Q8_0, and other quantization levels. Widely used for CPU and GPU inference on desktop hardware.
+
+MLX format: Apple's MLX framework uses its own quantization stored in safetensors files. MLX quantization is applied per-layer and supports 4-bit and 8-bit precision. Models on the mlx-community Hugging Face organization are pre-quantized for MLX.
+
+QAT (Quantization-Aware Training): The model is fine-tuned with quantization simulated during training, resulting in better accuracy than post-training quantization. Google's Gemma 3 1B QAT model is an example.
+
+Key trade-offs:
+- Lower bits = smaller model, faster inference, less memory, but potentially lower quality.
+- 4-bit quantization reduces quality by 1-3% on most benchmarks compared to float16.
+- 8-bit quantization reduces quality by less than 1% in most cases.
+
+In MLX Swift, quantized models are loaded with LLMModelFactory or EmbedderModelFactory and run identically to full-precision models. The quantization is transparent to application code.
+
+KV Cache quantization: In addition to weight quantization, the key-value attention cache can also be quantized (kvBits parameter in MLX) to reduce memory usage during long context generation.

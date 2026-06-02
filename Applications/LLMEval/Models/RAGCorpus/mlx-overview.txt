@@ -1,0 +1,20 @@
+MLX Framework Overview
+
+MLX is an array framework for machine learning on Apple silicon, developed by Apple's machine learning research team. It is designed to be familiar to users of NumPy and PyTorch while taking full advantage of the unified memory architecture found in Apple Silicon chips (M1, M2, M3, M4 series).
+
+Key features of MLX:
+- Unified memory: Unlike GPU frameworks on other platforms, MLX arrays live in unified memory shared between CPU and GPU. There is no need to move data between devices, which eliminates copying overhead and allows very large models to use the full system memory.
+- Lazy evaluation: MLX uses lazy computation by default. Operations are not executed until the result is needed (e.g., when calling eval()). This allows the framework to optimize computation graphs.
+- Metal backend: MLX uses Apple's Metal API to run operations on the GPU (also called the Apple Neural Engine in marketing, though technically separate). This gives full hardware acceleration on Mac and iPhone.
+- Python and Swift APIs: MLX provides both a Python API (similar to NumPy/PyTorch) and a Swift API (MLX Swift), enabling on-device inference and fine-tuning directly in Swift applications.
+
+MLX Swift is the Swift binding for MLX. It enables running large language models, embedding models, and other neural networks directly within iOS and macOS applications without any network requests. Models such as Llama, Qwen, Gemma, and Phi can be loaded in quantized form (4-bit or 8-bit) and run entirely on-device.
+
+The mlx-swift-examples repository provides reference implementations including:
+- LLM inference (llm-tool, LLMEval app)
+- Chat interface (MLXChatExample app)
+- Embedding models (embedder-tool)
+- LoRA fine-tuning (LoRATrainingExample)
+- Stable Diffusion image generation
+
+MLX requires Apple GPU Family 7 or later, which corresponds to A14 Bionic (iPhone 12) and M1 chips or newer.

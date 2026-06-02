@@ -11,6 +11,7 @@
 		0A979D132E9743D800635D67 /* MLXEmbedders in Frameworks */ = {isa = PBXBuildFile; productRef = 0A979D122E9743D800635D67 /* MLXEmbedders */; };
 		0F5AD8002DB70E6300745C06 /* MLXLLM in Frameworks */ = {isa = PBXBuildFile; productRef = C32A17FC2CFFB98A0092A5B6 /* MLXLLM */; };
 		0F5AD8012DB70E6300745C06 /* MLXVLM in Frameworks */ = {isa = PBXBuildFile; productRef = C32A17FE2CFFB98A0092A5B6 /* MLXVLM */; };
+		5E3AA036B3FD44DF89A094BF /* MLXEmbedders in Frameworks */ = {isa = PBXBuildFile; productRef = 232A874488B14605BB65C767 /* MLXEmbedders */; };
 		81695B412BA373D300F260D8 /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = 81695B402BA373D300F260D8 /* MarkdownUI */; };
 		C3132C2E2DFB317C00270E8E /* MLXVLM in Frameworks */ = {isa = PBXBuildFile; productRef = C3132C2D2DFB317C00270E8E /* MLXVLM */; };
 		C3132C302DFB317C00270E8E /* MLXLLM in Frameworks */ = {isa = PBXBuildFile; productRef = C3132C2F2DFB317C00270E8E /* MLXLLM */; };
@@ -298,12 +299,22 @@
 				LLMEval/Models/InferenceResult.swift,
 				LLMEval/Models/LongPrompt.md,
 				LLMEval/Models/PresetPrompts.swift,
+				"LLMEval/Models/RAGCorpus/calisma_saatleri.txt",
+				"LLMEval/Models/RAGCorpus/ise_alim.txt",
+				"LLMEval/Models/RAGCorpus/izin_politikasi.txt",
+				"LLMEval/Models/RAGCorpus/llm-quantization.txt",
+				"LLMEval/Models/RAGCorpus/maas_politikasi.txt",
+				"LLMEval/Models/RAGCorpus/mlx-overview.txt",
+				"LLMEval/Models/RAGCorpus/swift-concurrency.txt",
+				"LLMEval/Models/RAGCorpus/transformer-attention.txt",
 				LLMEval/Models/ToolDefinitions.swift,
 				LLMEval/Services/BenchmarkStore.swift,
 				LLMEval/Services/FormatUtilities.swift,
+				LLMEval/Services/RAGIndex.swift,
 				LLMEval/Services/ToolExecutor.swift,
 				LLMEval/ViewModels/DeviceStat.swift,
 				LLMEval/ViewModels/LLMEvaluator.swift,
+				LLMEval/ViewModels/RAGEvaluator.swift,
 				LLMEval/Views/ComparisonView.swift,
 				LLMEval/Views/ContentView.swift,
 				LLMEval/Views/HeaderView.swift,
@@ -315,6 +326,7 @@
 				LLMEval/Views/OutputView.swift,
 				LLMEval/Views/PresetPromptsSheet.swift,
 				LLMEval/Views/PromptInputView.swift,
+				LLMEval/Views/RAGView.swift,
 				LLMEval/Views/UnsupportedDeviceView.swift,
 			);
 			target = C3A8B3DB2B92A29D0002EFB8 /* LLMEval */;
@@ -540,6 +552,7 @@
 				81695B412BA373D300F260D8 /* MarkdownUI in Frameworks */,
 				C3EA7F672F84419A0054AEA3 /* HuggingFace in Frameworks */,
 				C3EA7F692F84419A0054AEA3 /* Tokenizers in Frameworks */,
+				5E3AA036B3FD44DF89A094BF /* MLXEmbedders in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -910,6 +923,7 @@
 				C3EA7F662F84419A0054AEA3 /* HuggingFace */,
 				C3EA7F682F84419A0054AEA3 /* Tokenizers */,
 				C33944FE2F8970C30054D57D /* MLXHuggingFace */,
+				232A874488B14605BB65C767 /* MLXEmbedders */,
 			);
 			productName = LLMEval;
 			productReference = C3A8B3DC2B92A29E0002EFB8 /* LLMEval.app */;
@@ -3358,6 +3372,11 @@
 			productName = ArgumentParser;
 		};
 		0A979D122E9743D800635D67 /* MLXEmbedders */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C397D8F22CD2F60B00B87EE2 /* XCLocalSwiftPackageReference "Libraries/.." */;
+			productName = MLXEmbedders;
+		};
+		232A874488B14605BB65C767 /* MLXEmbedders */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = C397D8F22CD2F60B00B87EE2 /* XCLocalSwiftPackageReference "Libraries/.." */;
 			productName = MLXEmbedders;

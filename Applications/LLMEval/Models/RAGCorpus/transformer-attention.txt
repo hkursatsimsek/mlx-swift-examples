@@ -1,0 +1,30 @@
+Transformer Architecture and Attention
+
+The Transformer is a neural network architecture introduced in the 2017 paper "Attention Is All You Need" by Vaswani et al. It is the foundation of all modern large language models (LLMs) including GPT, Llama, Gemma, and Qwen.
+
+Tokenization:
+Text is first split into tokens (subword units) using algorithms like BPE (Byte-Pair Encoding) or SentencePiece. Each token is mapped to an integer ID. For example, the word "embedding" might become tokens ["embed", "##ding"].
+
+Embeddings:
+Each token ID is looked up in an embedding table to produce a dense vector (typically 512 to 8192 dimensions). These vectors capture semantic meaning — similar words have similar vectors.
+
+Self-Attention:
+The core innovation of Transformers. For each token, attention computes how much to focus on every other token in the sequence. This is done using three matrices:
+- Query (Q): what the current token is looking for
+- Key (K): what each token offers
+- Value (V): the content each token contributes
+
+Attention score = softmax(Q × K^T / sqrt(d_k)) × V
+
+Multi-Head Attention runs attention in parallel across multiple "heads", allowing the model to attend to different aspects of the sequence simultaneously.
+
+Positional Encoding:
+Since attention has no inherent notion of order, position information is added to embeddings. Modern models use Rotary Position Embedding (RoPE) which encodes relative positions.
+
+Feed-Forward Layers:
+After attention, each position passes through a feed-forward network (two linear layers with an activation function like SiLU or GELU).
+
+Context Window:
+The maximum number of tokens a model can process at once. Common sizes are 4096, 8192, 32768, or 128000 tokens. Longer context windows require more memory (quadratic in the attention mechanism).
+
+Embedding models (like all-MiniLM-L6-v2) use the encoder part of a Transformer to produce fixed-size vector representations of text for similarity search and retrieval.

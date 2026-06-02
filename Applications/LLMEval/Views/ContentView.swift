@@ -12,7 +12,7 @@ struct ContentView: View {
     @Environment(DeviceStat.self) private var deviceStat
     @Environment(\.modelContext) private var modelContext
 
-    @State var llm = LLMEvaluator()
+    var llm: LLMEvaluator
 
     enum DisplayStyle: String, CaseIterable, Identifiable {
         case plain, markdown

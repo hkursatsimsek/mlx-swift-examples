@@ -1,0 +1,32 @@
+Swift Concurrency
+
+Swift Concurrency is a set of language features introduced in Swift 5.5 (Xcode 13) for writing asynchronous and concurrent code in a structured, safe way. It replaces callback-based patterns and Grand Central Dispatch (GCD) for most use cases.
+
+Core concepts:
+
+async/await: Functions marked with async can be suspended without blocking the thread. The await keyword marks a suspension point. Example:
+  func fetchData() async throws -> Data { ... }
+  let data = try await fetchData()
+
+Task: A unit of asynchronous work. Tasks can be created with Task { } or Task.detached { }. Tasks support cancellation via Task.cancel() and Task.checkCancellation().
+
+Actor: A reference type that serializes access to its mutable state. Only one task can access an actor's state at a time, eliminating data races.
+  actor Counter {
+      var value = 0
+      func increment() { value += 1 }
+  }
+
+@MainActor: A global actor that ensures code runs on the main thread. UI code must be annotated with @MainActor or run inside MainActor.run { }.
+
+Sendable: A protocol marking types safe to share across concurrency domains. Value types (structs, enums) are implicitly Sendable. Classes must explicitly conform.
+
+AsyncStream / AsyncSequence: Protocols for sequences that produce values asynchronously. Useful for streaming model output token by token.
+
+Structured concurrency: async let creates child tasks that run in parallel:
+  async let image = fetchImage()
+  async let text = fetchText()
+  let (img, txt) = await (image, text)
+
+Swift 6 mode enforces complete concurrency checking at compile time, making data race conditions compile errors rather than runtime crashes.
+
+In MLX Swift applications, @MainActor is used extensively for UI-bound observable classes, while model inference runs in background tasks via Task { }.
