@@ -9,6 +9,7 @@ import MLXEmbedders
 import MLXHuggingFace
 import MLXLMCommon
 import MLXLLM
+import PDFKit
 import SwiftUI
 import Tokenizers
 import UniformTypeIdentifiers
@@ -119,26 +120,57 @@ class RAGEvaluator {
         #if os(macOS)
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
-        panel.canChooseFiles = false
-        panel.allowsMultipleSelection = false
-        panel.prompt = "Corpus Klasörü Seç"
+        panel.canChooseFiles = true
+        panel.allowsMultipleSelection = true
+        panel.allowedContentTypes = [.folder, .text, .pdf]
+        panel.prompt = "Kaynak Seç"
 
-        if panel.runModal() == .OK, let url = panel.url {
-            corpusName = url.lastPathComponent
-            Task { await buildIndex(from: url) }
+        if panel.runModal() == .OK, !panel.urls.isEmpty {
+            Task { await handleSelectedURLs(panel.urls) }
         }
         #else
         isSelectingFolder = true
         #endif
     }
 
-    func handleSelectedFolder(_ url: URL) async {
-        let needsScope = url.startAccessingSecurityScopedResource()
-        defer {
+    func handleSelectedURLs(_ urls: [URL]) async {
+        indexError = nil
+        var documents: [RAGDocument] = []
+        var displayName: String?
+
+        for url in urls {
+            let needsScope = url.startAccessingSecurityScopedResource()
+
+            let isDir =
+                (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) ?? false
+            if isDir {
+                do {
+                    let folderDocs = try loadDocuments(from: url)
+                    documents.append(contentsOf: folderDocs)
+                    if displayName == nil { displayName = url.lastPathComponent }
+                } catch {
+                    indexError = error.localizedDescription
+                }
+            } else if let doc = loadDocument(from: url) {
+                documents.append(doc)
+            }
+
             if needsScope { url.stopAccessingSecurityScopedResource() }
         }
-        corpusName = url.lastPathComponent
-        await buildIndex(from: url)
+
+        guard !documents.isEmpty else {
+            if indexError == nil {
+                indexError =
+                    "Seçilen kaynaklarda işlenebilir doküman (.txt, .md, .pdf) bulunamadı."
+            }
+            return
+        }
+
+        corpusName =
+            displayName
+            ?? (urls.count == 1
+                ? urls[0].lastPathComponent : "\(documents.count) doküman")
+        await buildIndexFromDocuments(documents)
     }
 
     func useBundledDocs(selectedNames: [String]) {
@@ -158,21 +190,6 @@ class RAGEvaluator {
     }
 
     // MARK: - Indexing
-
-    func buildIndex(from root: URL) async {
-        do {
-            let documents = try loadDocuments(from: root)
-            guard !documents.isEmpty else {
-                await MainActor.run {
-                    indexError = "Seçilen klasörde metin dosyası (.txt, .md) bulunamadı."
-                }
-                return
-            }
-            await buildIndexFromDocuments(documents)
-        } catch {
-            indexError = error.localizedDescription
-        }
-    }
 
     func buildIndexFromDocuments(_ documents: [RAGDocument]) async {
         guard !isIndexing else { return }
@@ -344,15 +361,11 @@ class RAGEvaluator {
         ) else { return [] }
 
         var documents: [RAGDocument] = []
-        let allowedExtensions: Set<String> = ["txt", "md"]
 
         for case let fileURL as URL in enumerator {
             let values = try fileURL.resourceValues(forKeys: [.isRegularFileKey])
             guard values.isRegularFile == true else { continue }
-            guard allowedExtensions.contains(fileURL.pathExtension.lowercased()) else { continue }
-            guard let contents = try? String(contentsOf: fileURL, encoding: .utf8),
-                !contents.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            else { continue }
+            guard let contents = readSupportedFile(at: fileURL) else { continue }
 
             let name = relativeName(for: fileURL, root: root)
             documents.append(RAGDocument(name: name, contents: contents))
@@ -360,6 +373,51 @@ class RAGEvaluator {
         }
 
         return documents
+    }
+
+    private func loadDocument(from fileURL: URL) -> RAGDocument? {
+        guard let contents = readSupportedFile(at: fileURL) else { return nil }
+        return RAGDocument(name: fileURL.lastPathComponent, contents: contents)
+    }
+
+    private func readSupportedFile(at fileURL: URL) -> String? {
+        let ext = fileURL.pathExtension.lowercased()
+        let raw: String?
+        switch ext {
+        case "txt", "md":
+            raw = try? String(contentsOf: fileURL, encoding: .utf8)
+        case "pdf":
+            raw = extractPDFText(at: fileURL)
+        default:
+            return nil
+        }
+        guard let text = raw,
+            !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else { return nil }
+        return text
+    }
+
+    private func extractPDFText(at url: URL) -> String? {
+        guard let pdf = PDFDocument(url: url) else { return nil }
+        var pages: [String] = []
+        for i in 0..<pdf.pageCount {
+            if let s = pdf.page(at: i)?.string, !s.isEmpty {
+                pages.append(s)
+            }
+        }
+        let joined = pages.joined(separator: "\n\n")
+        return normalizePDFText(joined)
+    }
+
+    private func normalizePDFText(_ text: String) -> String {
+        var s = text
+        while s.contains("\n\n\n") {
+            s = s.replacingOccurrences(of: "\n\n\n", with: "\n\n")
+        }
+        while s.contains("   ") {
+            s = s.replacingOccurrences(of: "   ", with: "  ")
+        }
+        return s
     }
 
     private func relativeName(for url: URL, root: URL) -> String {

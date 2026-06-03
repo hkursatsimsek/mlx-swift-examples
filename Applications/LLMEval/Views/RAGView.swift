@@ -43,13 +43,13 @@ struct RAGView: View {
         .navigationBarTitleDisplayMode(.inline)
         .fileImporter(
             isPresented: $rag.isSelectingFolder,
-            allowedContentTypes: [.folder],
-            allowsMultipleSelection: false
+            allowedContentTypes: [.folder, .text, .pdf],
+            allowsMultipleSelection: true
         ) { result in
             switch result {
             case .success(let urls):
-                guard let url = urls.first else { return }
-                Task { await rag.handleSelectedFolder(url) }
+                guard !urls.isEmpty else { return }
+                Task { await rag.handleSelectedURLs(urls) }
             case .failure(let error):
                 rag.indexError = error.localizedDescription
             }
@@ -130,7 +130,7 @@ struct RAGView: View {
                             .foregroundStyle(rag.corpusName.isEmpty ? .secondary : .primary)
                     }
                     Spacer()
-                    Button("Klasör Seç") { rag.selectCorpusFolder() }
+                    Button("Kaynak Seç") { rag.selectCorpusFolder() }
                         .disabled(rag.isIndexing)
                     Button("Örnek Dokümanlar") {
                         selectedBundledDocs = Set(RAGEvaluator.bundledDocNames)
