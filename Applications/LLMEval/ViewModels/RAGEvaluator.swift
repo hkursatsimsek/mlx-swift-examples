@@ -1,6 +1,5 @@
 // Copyright © 2025 Apple Inc.
 
-import Accelerate
 import Foundation
 import Hub
 import HuggingFace
@@ -56,7 +55,29 @@ class RAGEvaluator {
 
     var isSelectingFolder = false
 
-    static let embedderConfig = EmbedderRegistry.minilm_l6
+    // MARK: - Embedder selection
+
+    /// Available embedding models the user can pick from. Defaults to a
+    /// multilingual model so Turkish corpora work out of the box.
+    static let availableEmbedders = RAGEmbedderModel.all
+
+    /// The selected embedding model. Changing it invalidates the current index
+    /// (different models produce incompatible vector spaces), so the corpus must
+    /// be re-indexed afterwards.
+    var selectedEmbedder: RAGEmbedderModel = .multilingualE5Small {
+        didSet {
+            guard selectedEmbedder.id != oldValue.id else { return }
+            embedderState = .idle
+            embedderInfo = ""
+            embedderDownloadProgress = nil
+            index = RAGVectorIndex()
+            documentCount = 0
+            corpusName = ""
+            searchResults = []
+            answer = ""
+            indexError = nil
+        }
+    }
 
     static let bundledDocNames = [
         "izin_politikasi", "maas_politikasi", "calisma_saatleri", "ise_alim",
@@ -94,7 +115,7 @@ class RAGEvaluator {
             let container = try await EmbedderModelFactory.shared.loadContainer(
                 from: downloader,
                 using: tokenizerLoader,
-                configuration: Self.embedderConfig
+                configuration: selectedEmbedder.configuration
             ) { [weak self] progress in
                 Task { @MainActor in
                     self?.embedderDownloadProgress = progress.fractionCompleted
@@ -103,7 +124,7 @@ class RAGEvaluator {
                 }
             }
 
-            embedderInfo = "all-MiniLM-L6-v2 hazır"
+            embedderInfo = "\(selectedEmbedder.shortName) hazır"
             embedderDownloadProgress = nil
             embedderState = .loaded(container)
             return container
@@ -221,11 +242,12 @@ class RAGEvaluator {
                 let batchEnd = min(batchStart + batchSize, chunks.count)
                 let batch = Array(chunks[batchStart..<batchEnd])
 
-                let vectors = try await embedTexts(batch.map { $0.text }, container: container)
+                let vectors = try await embedTexts(
+                    batch.map { $0.text }, isQuery: false, container: container)
 
                 for (i, vector) in vectors.enumerated() {
                     guard batch.indices.contains(i) else { continue }
-                    let normalized = normalizeVector(vector)
+                    let normalized = RAGEmbedding.normalize(vector)
                     newIndex.add(RAGIndexEntry(chunk: batch[i], embedding: normalized))
                 }
 
@@ -259,15 +281,16 @@ class RAGEvaluator {
 
             do {
                 let container = try await loadEmbedder()
-                let queryVectors = try await embedTexts([currentQuery], container: container)
+                let queryVectors = try await embedTexts(
+                    [currentQuery], isQuery: true, container: container)
 
                 guard let rawVector = queryVectors.first else {
                     isSearching = false
                     return
                 }
 
-                let normalizedQuery = normalizeVector(rawVector)
-                searchResults = index.search(query: normalizedQuery, topK: 3)
+                let normalizedQuery = RAGEmbedding.normalize(rawVector)
+                searchResults = index.search(query: normalizedQuery, topK: 5)
                 isSearching = false
 
                 guard !searchResults.isEmpty else {
@@ -428,51 +451,10 @@ class RAGEvaluator {
         return remainder.hasPrefix("/") ? String(remainder.dropFirst()) : String(remainder)
     }
 
-    private func embedTexts(_ texts: [String], container: EmbedderModelContainer) async throws
-        -> [[Float]]
-    {
-        guard !texts.isEmpty else { return [] }
-
-        return try await container.perform { context in
-            let tokenizer = context.tokenizer
-            let padToken = tokenizer.convertTokenToId("[PAD]") ?? tokenizer.eosTokenId ?? 0
-
-            let encoded = texts.compactMap { text -> [Int]? in
-                let tokens = tokenizer.encode(text: text, addSpecialTokens: true)
-                return tokens.isEmpty ? nil : tokens
-            }
-            guard !encoded.isEmpty else { return [[Float]]() }
-
-            let maxLength = encoded.map(\.count).max() ?? 0
-            let padded = stacked(
-                encoded.map { tokens in
-                    MLXArray(tokens + Array(repeating: padToken, count: maxLength - tokens.count))
-                })
-
-            let mask = padded .!= MLXArray(padToken)
-            let tokenTypes = MLXArray.zeros(like: padded)
-
-            let output = context.model(
-                padded, positionIds: nil, tokenTypeIds: tokenTypes, attentionMask: mask)
-
-            let pooled = context.pooling(output, mask: mask, normalize: true, applyLayerNorm: false)
-            pooled.eval()
-
-            return (0..<pooled.shape[0]).map { i in
-                pooled[i].asArray(Float.self)
-            }
-        }
-    }
-
-    private func normalizeVector(_ v: [Float]) -> [Float] {
-        guard !v.isEmpty else { return [] }
-        let sanitized = v.map { $0.isFinite ? $0 : Float(0) }
-        var sumSq: Float = 0
-        vDSP_svesq(sanitized, 1, &sumSq, vDSP_Length(sanitized.count))
-        guard sumSq > 1e-9 else { return sanitized }
-        var divisor = sqrt(sumSq)
-        var out = [Float](repeating: 0, count: sanitized.count)
-        vDSP_vsdiv(sanitized, 1, &divisor, &out, 1, vDSP_Length(sanitized.count))
-        return out
+    private func embedTexts(
+        _ texts: [String], isQuery: Bool, container: EmbedderModelContainer
+    ) async throws -> [[Float]] {
+        try await RAGEmbedding.embed(
+            texts: texts, isQuery: isQuery, model: selectedEmbedder, container: container)
     }
 }
