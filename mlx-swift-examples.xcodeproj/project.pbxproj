@@ -12,6 +12,7 @@
 		EE00000000000000000000C3 /* backend_xnnpack in Frameworks */ = {isa = PBXBuildFile; productRef = EE00000000000000000000B3 /* backend_xnnpack */; };
 		EE00000000000000000000C4 /* kernels_llm in Frameworks */ = {isa = PBXBuildFile; productRef = EE00000000000000000000B4 /* kernels_llm */; };
 		EE00000000000000000000C5 /* kernels_optimized in Frameworks */ = {isa = PBXBuildFile; productRef = EE00000000000000000000B5 /* kernels_optimized */; };
+		EE00000000000000000000C6 /* kernels_quantized in Frameworks */ = {isa = PBXBuildFile; productRef = EE00000000000000000000B6 /* kernels_quantized */; };
 		0A979CD92E9717C500635D67 /* ArgumentParser in Frameworks */ = {isa = PBXBuildFile; productRef = 0A979CD82E9717C500635D67 /* ArgumentParser */; };
 		0A979D132E9743D800635D67 /* MLXEmbedders in Frameworks */ = {isa = PBXBuildFile; productRef = 0A979D122E9743D800635D67 /* MLXEmbedders */; };
 		0F5AD8002DB70E6300745C06 /* MLXLLM in Frameworks */ = {isa = PBXBuildFile; productRef = C32A17FC2CFFB98A0092A5B6 /* MLXLLM */; };
@@ -570,6 +571,7 @@
 				EE00000000000000000000C3 /* backend_xnnpack in Frameworks */,
 				EE00000000000000000000C4 /* kernels_llm in Frameworks */,
 				EE00000000000000000000C5 /* kernels_optimized in Frameworks */,
+				EE00000000000000000000C6 /* kernels_quantized in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -946,6 +948,7 @@
 				EE00000000000000000000B3 /* backend_xnnpack */,
 				EE00000000000000000000B4 /* kernels_llm */,
 				EE00000000000000000000B5 /* kernels_optimized */,
+				EE00000000000000000000B6 /* kernels_quantized */,
 			);
 			productName = LLMEval;
 			productReference = C3A8B3DC2B92A29E0002EFB8 /* LLMEval.app */;
@@ -3423,6 +3426,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = EE00000000000000000000A1 /* XCRemoteSwiftPackageReference "executorch" */;
 			productName = kernels_optimized;
+		};
+		EE00000000000000000000B6 /* kernels_quantized */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = EE00000000000000000000A1 /* XCRemoteSwiftPackageReference "executorch" */;
+			productName = kernels_quantized;
 		};
 		0A979CD82E9717C500635D67 /* ArgumentParser */ = {
 			isa = XCSwiftPackageProductDependency;

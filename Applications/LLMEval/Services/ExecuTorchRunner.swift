@@ -17,10 +17,11 @@ protocol ExecuTorchRunner: Sendable {
     /// Backend label shown in the UI (e.g. `Mock`, `XNNPACK`, `Core ML`).
     var backendName: String { get }
 
-    /// Load a `.pte` program + tokenizer from a previously downloaded directory.
-    /// `specialTokens` is used by tiktoken-style tokenizers (e.g. Llama 3); it can
-    /// be empty for tokenizers that already embed their special tokens (HF json).
-    func load(modelDirectory: URL, specialTokens: [String]) async throws
+    /// Load a `.pte` program and tokenizer from their resolved file URLs (they may
+    /// come from two different Hugging Face repos). `specialTokens` is used by
+    /// tiktoken-style tokenizers; leave it empty for an HF `tokenizer.json`, which
+    /// already embeds its special tokens.
+    func load(modelURL: URL, tokenizerURL: URL, specialTokens: [String]) async throws
 
     /// Stream generated text. Tokens are delivered in order; the stream finishes
     /// when generation completes, throws on error, or is cancelled.
@@ -37,7 +38,7 @@ final class MockExecuTorchRunner: ExecuTorchRunner {
     let isMock = true
     let backendName = "Mock"
 
-    func load(modelDirectory: URL, specialTokens: [String]) async throws {
+    func load(modelURL: URL, tokenizerURL: URL, specialTokens: [String]) async throws {
         // Simulate engine warm-up so the loading overlay is exercised.
         try await Task.sleep(for: .milliseconds(400))
     }

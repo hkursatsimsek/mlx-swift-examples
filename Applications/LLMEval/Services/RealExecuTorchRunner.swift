@@ -29,28 +29,19 @@
         @available(*, deprecated, message: "Wraps ExecuTorch's experimental LLM API")
         private var runner: TextRunner?
 
-        init(sequenceLength: Int = 2048, maxNewTokens: Int = 512, temperature: Double = 0.8) {
+        // A lower temperature keeps a small, heavily-quantized model more focused
+        // and reduces (but does not eliminate) made-up answers.
+        init(sequenceLength: Int = 2048, maxNewTokens: Int = 512, temperature: Double = 0.6) {
             self.sequenceLength = sequenceLength
             self.maxNewTokens = maxNewTokens
             self.temperature = temperature
         }
 
         @available(*, deprecated, message: "Wraps ExecuTorch's experimental LLM API")
-        func load(modelDirectory: URL, specialTokens: [String]) async throws {
-            let fileManager = FileManager.default
-            let contents = try fileManager.contentsOfDirectory(
-                at: modelDirectory, includingPropertiesForKeys: nil)
-
-            guard let pte = contents.first(where: { $0.pathExtension == "pte" }) else {
-                throw ExecuTorchRunnerError.missingFile("`.pte` programı indirilen klasörde bulunamadı")
-            }
-            guard let tokenizer = Self.findTokenizer(in: contents) else {
-                throw ExecuTorchRunnerError.missingFile("Tokenizer dosyası indirilen klasörde bulunamadı")
-            }
-
+        func load(modelURL: URL, tokenizerURL: URL, specialTokens: [String]) async throws {
             let runner = TextRunner(
-                modelPath: pte.path,
-                tokenizerPath: tokenizer.path,
+                modelPath: modelURL.path,
+                tokenizerPath: tokenizerURL.path,
                 specialTokens: specialTokens
             )
             try runner.load()
@@ -72,6 +63,11 @@
                                 $0.temperature = self.temperature
                                 $0.sequenceLength = self.sequenceLength
                                 $0.maximumNewTokens = self.maxNewTokens
+                                // Stream only the model's answer, not the prompt.
+                                // ExecuTorch's GenerationConfig echoes the prompt by
+                                // default, which dumps the whole chat template into
+                                // the output view.
+                                $0.isEchoEnabled = false
                             }
                         ) { token in
                             continuation.yield(token)
@@ -87,29 +83,13 @@
                 }
             }
         }
-
-        /// Finds the tokenizer file in a downloaded model directory, preferring a
-        /// `tokenizer.*` file but accepting any `.model`/`.json`/`.bin` fallback.
-        private static func findTokenizer(in contents: [URL]) -> URL? {
-            if let named = contents.first(where: {
-                $0.lastPathComponent.lowercased().hasPrefix("tokenizer")
-                    && ["model", "json", "bin"].contains($0.pathExtension.lowercased())
-            }) {
-                return named
-            }
-            return contents.first(where: {
-                ["model", "json", "bin"].contains($0.pathExtension.lowercased())
-            })
-        }
     }
 
     enum ExecuTorchRunnerError: LocalizedError {
-        case missingFile(String)
         case notLoaded
 
         var errorDescription: String? {
             switch self {
-            case .missingFile(let message): return message
             case .notLoaded: return "ExecuTorch modeli henüz yüklenmedi"
             }
         }

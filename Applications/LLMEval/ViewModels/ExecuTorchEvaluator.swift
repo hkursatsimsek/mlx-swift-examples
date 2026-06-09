@@ -108,11 +108,9 @@ class ExecuTorchEvaluator {
 
         do {
             let hub = HubApi()
-            let repo = Hub.Repo(id: model.repoId)
-            let directory = try await hub.snapshot(
-                from: repo,
-                matching: [model.pteGlob, model.tokenizerGlob]
-            ) { @Sendable [weak self] progress in
+
+            // 1) The `.pte` program from the model repo.
+            let progressHandler: @Sendable (Progress) -> Void = { [weak self] progress in
                 let fraction = progress.fractionCompleted
                 Task { @MainActor in
                     guard let self else { return }
@@ -121,14 +119,32 @@ class ExecuTorchEvaluator {
                 }
             }
 
+            let modelDir = try await hub.snapshot(
+                from: Hub.Repo(id: model.repoId),
+                matching: [model.pteGlob],
+                progressHandler: progressHandler
+            )
+
+            // 2) The tokenizer, possibly from a different (vocab-compatible) repo.
+            let tokenizerDir = try await hub.snapshot(
+                from: Hub.Repo(id: model.effectiveTokenizerRepoId),
+                matching: [model.tokenizerGlob],
+                progressHandler: progressHandler
+            )
+
+            let modelURL = try Self.resolveFile(in: modelDir, glob: model.pteGlob)
+            let tokenizerURL = try Self.resolveFile(in: tokenizerDir, glob: model.tokenizerGlob)
+
             modelInfo = "\(model.shortName) yükleniyor..."
             downloadProgress = nil
             progressDescription = nil
 
             try await runner.load(
-                modelDirectory: directory, specialTokens: model.specialTokens)
+                modelURL: modelURL,
+                tokenizerURL: tokenizerURL,
+                specialTokens: model.specialTokens)
 
-            loadState = .loaded(directory)
+            loadState = .loaded(modelURL)
             modelInfo = "\(model.shortName) • \(runner.backendName) backend"
         } catch {
             loadState = .idle
@@ -202,5 +218,37 @@ class ExecuTorchEvaluator {
         tokensPerSecond = 0
         timeToFirstToken = 0
         totalTime = 0
+    }
+
+    /// Resolves a single downloaded file inside a snapshot directory. `glob` is
+    /// either an extension pattern (`*.pte`) or a literal filename
+    /// (`tokenizer.json`); the search recurses so nested snapshots still match.
+    nonisolated static func resolveFile(in directory: URL, glob: String) throws -> URL {
+        let fileManager = FileManager.default
+        let all = fileManager.enumerator(
+            at: directory, includingPropertiesForKeys: nil)?
+            .compactMap { $0 as? URL } ?? []
+
+        if glob.hasPrefix("*.") {
+            let ext = String(glob.dropFirst(2))
+            if let match = all.first(where: { $0.pathExtension == ext }) { return match }
+        } else if let match = all.first(where: { $0.lastPathComponent == glob }) {
+            return match
+        }
+        throw ExecuTorchLoadError.missingFile(glob: glob, directory: directory)
+    }
+}
+
+/// Errors surfaced while preparing an ExecuTorch model for the experimental tab.
+/// Defined outside the `#if canImport(ExecuTorchLLM)` guard so the mock build can
+/// reference it too.
+enum ExecuTorchLoadError: LocalizedError {
+    case missingFile(glob: String, directory: URL)
+
+    var errorDescription: String? {
+        switch self {
+        case .missingFile(let glob, _):
+            return "İndirilen dosyalar arasında '\(glob)' ile eşleşen bulunamadı"
+        }
     }
 }

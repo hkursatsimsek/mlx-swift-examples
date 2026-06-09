@@ -19,7 +19,13 @@ struct ExecuTorchModel: Identifiable, Hashable {
     /// Glob matching the ExecuTorch program file inside the repo.
     let pteGlob: String
 
-    /// Glob matching the tokenizer file(s) inside the repo.
+    /// Optional separate HF repo to fetch the tokenizer from. Use this when the
+    /// model repo only ships a format ExecuTorch's loader can't read (e.g. a
+    /// tiktoken `tokenizer.model`) and a vocab-compatible HF `tokenizer.json` lives
+    /// in another (non-gated) mirror. `nil` → the tokenizer is fetched from `repoId`.
+    let tokenizerRepoId: String?
+
+    /// Glob matching the tokenizer file inside ``tokenizerRepoId`` (or ``repoId``).
     let tokenizerGlob: String
 
     /// Human-readable name shown in the picker.
@@ -74,10 +80,15 @@ struct ExecuTorchModel: Identifiable, Hashable {
 
     static let available: [ExecuTorchModel] = [
         // Recommended for real answers: instruction-tuned, uses the Llama 3 chat
-        // template + the explicit tiktoken special-token list. Validate on device.
+        // template. Use the model repo's *own* tiktoken `tokenizer.model` — the one
+        // the `.pte` was exported against. ExecuTorch routes it through its native
+        // tiktoken tokenizer (the path Meta tests for this model). A vocab-identical
+        // HF `tokenizer.json` mirror tokenizes regular text differently here and
+        // yields nonsense output, so we pass the explicit special-token list instead.
         ExecuTorchModel(
             repoId: "executorch-community/Llama-3.2-1B-Instruct-SpinQuant_INT4_EO8-ET",
             pteGlob: "*.pte",
+            tokenizerRepoId: nil,
             tokenizerGlob: "tokenizer.model",
             displayName: "Llama 3.2 1B Instruct (INT4)",
             size: "~1.1 GB",
@@ -89,6 +100,7 @@ struct ExecuTorchModel: Identifiable, Hashable {
         ExecuTorchModel(
             repoId: "executorch-community/SmolLM2-135M",
             pteGlob: "*.pte",
+            tokenizerRepoId: nil,
             tokenizerGlob: "tokenizer.json",
             displayName: "SmolLM2 135M (base)",
             size: "~270 MB",
@@ -96,6 +108,9 @@ struct ExecuTorchModel: Identifiable, Hashable {
             promptStyle: .raw
         ),
     ]
+
+    /// Repo the tokenizer is actually downloaded from.
+    var effectiveTokenizerRepoId: String { tokenizerRepoId ?? repoId }
 
     /// The canonical 256-entry Llama-3 special-token list (Meta `tokenizer.py`
     /// construction). Required for the tiktoken `tokenizer.model`; verify against
@@ -114,9 +129,13 @@ struct ExecuTorchModel: Identifiable, Hashable {
             "<|eot_id|>",
             "<|python_tag|>",
         ]
+        // Meta's `tokenizer.py` lays these out as: the 11 named tokens above (ids
+        // 128000–128010, so `<|python_tag|>` is 128010), then reserved_special_token
+        // 2…246 filling 128011–128255. Keep this exact order — the ids must line up
+        // with the model's embedding table.
         let reserved = (0 ..< (256 - base.count)).map {
             "<|reserved_special_token_\($0 + 2)|>"
         }
-        return Array(base.dropLast()) + reserved + [base[base.count - 1]]
+        return base + reserved
     }()
 }
