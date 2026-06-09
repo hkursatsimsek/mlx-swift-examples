@@ -51,6 +51,12 @@ struct ExecuTorchModel: Identifiable, Hashable {
         case raw
         /// Wrap with the Llama 3 chat template.
         case llama3
+        /// ChatML format used by Qwen3 (and Qwen2) models.
+        case qwen3
+        /// Phi-4 Mini chat format (`<|system|>…<|end|>`).
+        case phi4
+        /// Gemma 3 chat format (`<start_of_turn>user … <end_of_turn>`).
+        case gemma3
     }
 
     var id: String { repoId }
@@ -60,7 +66,7 @@ struct ExecuTorchModel: Identifiable, Hashable {
     /// Wraps a user prompt according to ``promptStyle`` so instruction-tuned models
     /// respond as a chat assistant instead of merely continuing the text.
     func formattedPrompt(
-        _ userPrompt: String, system: String = "You are a helpful assistant."
+        _ userPrompt: String, system: String = "Sen yardımsever bir Türkçe asistansın. Her zaman Türkçe yanıt ver."
     ) -> String {
         switch promptStyle {
         case .raw:
@@ -75,6 +81,15 @@ struct ExecuTorchModel: Identifiable, Hashable {
 
 
                 """
+        case .qwen3:
+            // ChatML format; `/no_think` suffix disables the chain-of-thought
+            // scratchpad so the model responds directly (faster, smaller output).
+            return "<|im_start|>system\n\(system)<|im_end|>\n<|im_start|>user\n\(userPrompt)<|im_end|>\n<|im_start|>assistant\n"
+        case .phi4:
+            return "<|system|>\n\(system)<|end|>\n<|user|>\n\(userPrompt)<|end|>\n<|assistant|>\n"
+        case .gemma3:
+            // Role name is "model" (not "assistant") — Gemma's convention.
+            return "<start_of_turn>system\n\(system)<end_of_turn>\n<start_of_turn>user\n\(userPrompt)<end_of_turn>\n<start_of_turn>model\n"
         }
     }
 
@@ -106,6 +121,49 @@ struct ExecuTorchModel: Identifiable, Hashable {
             size: "~270 MB",
             specialTokens: [],
             promptStyle: .raw
+        ),
+
+        // Strong reasoning model from the PyTorch team. INT8 embeddings + INT4
+        // weights give a good speed/quality balance. Runs at ~14.8 tok/s on
+        // iPhone 15 Pro (~3.4 GB). Tokenizer.json ships in the same repo.
+        ExecuTorchModel(
+            repoId: "pytorch/Qwen3-4B-INT8-INT4",
+            pteGlob: "model.pte",
+            tokenizerRepoId: nil,
+            tokenizerGlob: "tokenizer.json",
+            displayName: "Qwen3 4B (INT8+INT4)",
+            size: "~3.4 GB",
+            specialTokens: [],
+            promptStyle: .qwen3
+        ),
+
+        // Microsoft Phi-4 Mini quantized by the PyTorch team. Fastest of the
+        // larger models (~17.3 tok/s on iPhone 15 Pro, ~3.2 GB). Excellent at
+        // instruction following and reasoning for its size. Tokenizer.json ships
+        // in the same repo; specialTokens not required for HF tokenizer format.
+        ExecuTorchModel(
+            repoId: "pytorch/Phi-4-mini-instruct-INT8-INT4",
+            pteGlob: "model.pte",
+            tokenizerRepoId: nil,
+            tokenizerGlob: "tokenizer.json",
+            displayName: "Phi-4 Mini Instruct (INT8+INT4)",
+            size: "~3.2 GB",
+            specialTokens: [],
+            promptStyle: .phi4
+        ),
+
+        // Google Gemma 3 4B instruction-tuned, quantized by the PyTorch team
+        // with HQQ (Half-Quadratic Quantization) INT8+INT4. Role name in the
+        // template is "model" (not "assistant") — Gemma's convention.
+        ExecuTorchModel(
+            repoId: "pytorch/gemma-3-4b-it-HQQ-INT8-INT4",
+            pteGlob: "model.pte",
+            tokenizerRepoId: nil,
+            tokenizerGlob: "tokenizer.json",
+            displayName: "Gemma 3 4B IT (HQQ INT8+INT4)",
+            size: "~3.5 GB",
+            specialTokens: [],
+            promptStyle: .gemma3
         ),
     ]
 
