@@ -55,8 +55,6 @@ struct ExecuTorchModel: Identifiable, Hashable {
         case qwen3
         /// Phi-4 Mini chat format (`<|system|>…<|end|>`).
         case phi4
-        /// Gemma 3 chat format (`<start_of_turn>user … <end_of_turn>`).
-        case gemma3
     }
 
     var id: String { repoId }
@@ -87,9 +85,6 @@ struct ExecuTorchModel: Identifiable, Hashable {
             return "<|im_start|>system\n\(system)<|im_end|>\n<|im_start|>user\n\(userPrompt)<|im_end|>\n<|im_start|>assistant\n"
         case .phi4:
             return "<|system|>\n\(system)<|end|>\n<|user|>\n\(userPrompt)<|end|>\n<|assistant|>\n"
-        case .gemma3:
-            // Role name is "model" (not "assistant") — Gemma's convention.
-            return "<start_of_turn>system\n\(system)<end_of_turn>\n<start_of_turn>user\n\(userPrompt)<end_of_turn>\n<start_of_turn>model\n"
         }
     }
 
@@ -152,21 +147,10 @@ struct ExecuTorchModel: Identifiable, Hashable {
             promptStyle: .phi4
         ),
 
-        // Google Gemma 2 2B instruction-tuned, exported by the ExecuTorch
-        // community with standard XNNPACK-compatible INT4 quantization.
-        // The HQQ-quantized pytorch/gemma-3-4b-it-HQQ-INT8-INT4 variant
-        // triggers DelegateFailed (error 18) because HQQ requires custom
-        // kernels not included in the swiftpm-1.3.1 kernels_quantized package.
-        ExecuTorchModel(
-            repoId: "executorch-community/gemma-2-2b-it-ExecuTorch",
-            pteGlob: "*.pte",
-            tokenizerRepoId: nil,
-            tokenizerGlob: "tokenizer.json",
-            displayName: "Gemma 2 2B IT (INT4)",
-            size: "~1.5 GB",
-            specialTokens: [],
-            promptStyle: .gemma3
-        ),
+        // NOTE: All Gemma variants (2B / 3B / 4B, any org) are gated on HF
+        // because Google's Gemma license requires an accepted agreement.
+        // They cannot be downloaded without a user-scoped HF token, which
+        // this app does not support. Use Qwen3 or Phi-4 Mini instead.
     ]
 
     /// Repo the tokenizer is actually downloaded from.
