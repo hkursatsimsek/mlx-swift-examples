@@ -83,12 +83,12 @@ class ExecuTorchEvaluator {
     var backendName: String { runner.backendName }
     var isMockRunner: Bool { runner.isMock }
 
-    /// Selects the real ExecuTorch runner once the framework is linked (Phase 2),
-    /// otherwise falls back to the mock so the app always builds and runs.
+    /// Selects the real ExecuTorch runner when the `ExecuTorchLLM` framework is
+    /// linked (Phase 2), otherwise falls back to the mock so the app always builds
+    /// and runs even without the binary dependency.
     static func makeRunner() -> ExecuTorchRunner {
-        #if canImport(ExecuTorch)
-            // Phase 2: return RealExecuTorchRunner() once the framework is added.
-            return MockExecuTorchRunner()
+        #if canImport(ExecuTorchLLM)
+            return RealExecuTorchRunner()
         #else
             return MockExecuTorchRunner()
         #endif
@@ -125,7 +125,8 @@ class ExecuTorchEvaluator {
             downloadProgress = nil
             progressDescription = nil
 
-            try await runner.load(modelDirectory: directory)
+            try await runner.load(
+                modelDirectory: directory, specialTokens: model.specialTokens)
 
             loadState = .loaded(directory)
             modelInfo = "\(model.shortName) • \(runner.backendName) backend"
@@ -142,7 +143,9 @@ class ExecuTorchEvaluator {
 
     func generate() {
         guard !running, !prompt.isEmpty else { return }
-        let currentPrompt = prompt
+        // Apply the model's chat template so instruction-tuned models answer the
+        // prompt instead of merely continuing the text.
+        let currentPrompt = model.formattedPrompt(prompt)
         resetMetrics()
         errorMessage = nil
 

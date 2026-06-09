@@ -7,6 +7,11 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		EE00000000000000000000C1 /* executorch in Frameworks */ = {isa = PBXBuildFile; productRef = EE00000000000000000000B1 /* executorch */; };
+		EE00000000000000000000C2 /* executorch_llm in Frameworks */ = {isa = PBXBuildFile; productRef = EE00000000000000000000B2 /* executorch_llm */; };
+		EE00000000000000000000C3 /* backend_xnnpack in Frameworks */ = {isa = PBXBuildFile; productRef = EE00000000000000000000B3 /* backend_xnnpack */; };
+		EE00000000000000000000C4 /* kernels_llm in Frameworks */ = {isa = PBXBuildFile; productRef = EE00000000000000000000B4 /* kernels_llm */; };
+		EE00000000000000000000C5 /* kernels_optimized in Frameworks */ = {isa = PBXBuildFile; productRef = EE00000000000000000000B5 /* kernels_optimized */; };
 		0A979CD92E9717C500635D67 /* ArgumentParser in Frameworks */ = {isa = PBXBuildFile; productRef = 0A979CD82E9717C500635D67 /* ArgumentParser */; };
 		0A979D132E9743D800635D67 /* MLXEmbedders in Frameworks */ = {isa = PBXBuildFile; productRef = 0A979D122E9743D800635D67 /* MLXEmbedders */; };
 		0F5AD8002DB70E6300745C06 /* MLXLLM in Frameworks */ = {isa = PBXBuildFile; productRef = C32A17FC2CFFB98A0092A5B6 /* MLXLLM */; };
@@ -313,6 +318,7 @@
 				LLMEval/Services/ExecuTorchRunner.swift,
 				LLMEval/Services/FormatUtilities.swift,
 				LLMEval/Services/RAGBenchmark.swift,
+				LLMEval/Services/RealExecuTorchRunner.swift,
 				LLMEval/Services/RAGEmbedderModel.swift,
 				LLMEval/Services/RAGIndex.swift,
 				LLMEval/Services/ToolExecutor.swift,
@@ -559,6 +565,11 @@
 				C3EA7F672F84419A0054AEA3 /* HuggingFace in Frameworks */,
 				C3EA7F692F84419A0054AEA3 /* Tokenizers in Frameworks */,
 				5E3AA036B3FD44DF89A094BF /* MLXEmbedders in Frameworks */,
+				EE00000000000000000000C1 /* executorch in Frameworks */,
+				EE00000000000000000000C2 /* executorch_llm in Frameworks */,
+				EE00000000000000000000C3 /* backend_xnnpack in Frameworks */,
+				EE00000000000000000000C4 /* kernels_llm in Frameworks */,
+				EE00000000000000000000C5 /* kernels_optimized in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -930,6 +941,11 @@
 				C3EA7F682F84419A0054AEA3 /* Tokenizers */,
 				C33944FE2F8970C30054D57D /* MLXHuggingFace */,
 				232A874488B14605BB65C767 /* MLXEmbedders */,
+				EE00000000000000000000B1 /* executorch */,
+				EE00000000000000000000B2 /* executorch_llm */,
+				EE00000000000000000000B3 /* backend_xnnpack */,
+				EE00000000000000000000B4 /* kernels_llm */,
+				EE00000000000000000000B5 /* kernels_optimized */,
 			);
 			productName = LLMEval;
 			productReference = C3A8B3DC2B92A29E0002EFB8 /* LLMEval.app */;
@@ -1005,6 +1021,7 @@
 				C3EA7F522F8431BE0054AEA3 /* XCRemoteSwiftPackageReference "swift-huggingface" */,
 				C3EA7F532F8432080054AEA3 /* XCRemoteSwiftPackageReference "swift-transformers" */,
 				C36941322F8F489800810A49 /* XCRemoteSwiftPackageReference "mlx-swift-lm" */,
+				EE00000000000000000000A1 /* XCRemoteSwiftPackageReference "executorch" */,
 			);
 			productRefGroup = C39273752B606A0A00368D5D /* Products */;
 			projectDirPath = "";
@@ -3008,6 +3025,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_ENTITLEMENTS = Applications/LLMEval/LLMEval.entitlements;
+				OTHER_LDFLAGS = "-all_load";
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
@@ -3102,6 +3120,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_ENTITLEMENTS = Applications/LLMEval/LLMEval.entitlements;
+				OTHER_LDFLAGS = "-all_load";
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
@@ -3369,9 +3388,42 @@
 			traits = (
 			);
 		};
+		EE00000000000000000000A1 /* XCRemoteSwiftPackageReference "executorch" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/pytorch/executorch.git";
+			requirement = {
+				branch = "swiftpm-1.3.1";
+				kind = branch;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		EE00000000000000000000B1 /* executorch */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = EE00000000000000000000A1 /* XCRemoteSwiftPackageReference "executorch" */;
+			productName = executorch;
+		};
+		EE00000000000000000000B2 /* executorch_llm */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = EE00000000000000000000A1 /* XCRemoteSwiftPackageReference "executorch" */;
+			productName = executorch_llm;
+		};
+		EE00000000000000000000B3 /* backend_xnnpack */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = EE00000000000000000000A1 /* XCRemoteSwiftPackageReference "executorch" */;
+			productName = backend_xnnpack;
+		};
+		EE00000000000000000000B4 /* kernels_llm */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = EE00000000000000000000A1 /* XCRemoteSwiftPackageReference "executorch" */;
+			productName = kernels_llm;
+		};
+		EE00000000000000000000B5 /* kernels_optimized */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = EE00000000000000000000A1 /* XCRemoteSwiftPackageReference "executorch" */;
+			productName = kernels_optimized;
+		};
 		0A979CD82E9717C500635D67 /* ArgumentParser */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = C392736E2B60699100368D5D /* XCRemoteSwiftPackageReference "swift-argument-parser" */;
