@@ -31,6 +31,13 @@ struct LLMEvalApp: App {
                     .tabItem {
                         Label("RAG", systemImage: "doc.text.magnifyingglass")
                     }
+
+                    NavigationStack {
+                        ExecuTorchView(evaluator: ExecuTorchEvaluator())
+                    }
+                    .tabItem {
+                        Label("ExecuTorch", systemImage: "cpu")
+                    }
                 }
                 .environment(DeviceStat())
             } else {
