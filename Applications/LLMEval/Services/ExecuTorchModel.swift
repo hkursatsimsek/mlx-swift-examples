@@ -152,16 +152,18 @@ struct ExecuTorchModel: Identifiable, Hashable {
             promptStyle: .phi4
         ),
 
-        // Google Gemma 3 4B instruction-tuned, quantized by the PyTorch team
-        // with HQQ (Half-Quadratic Quantization) INT8+INT4. Role name in the
-        // template is "model" (not "assistant") — Gemma's convention.
+        // Google Gemma 2 2B instruction-tuned, exported by the ExecuTorch
+        // community with standard XNNPACK-compatible INT4 quantization.
+        // The HQQ-quantized pytorch/gemma-3-4b-it-HQQ-INT8-INT4 variant
+        // triggers DelegateFailed (error 18) because HQQ requires custom
+        // kernels not included in the swiftpm-1.3.1 kernels_quantized package.
         ExecuTorchModel(
-            repoId: "pytorch/gemma-3-4b-it-HQQ-INT8-INT4",
-            pteGlob: "model.pte",
+            repoId: "executorch-community/gemma-2-2b-it-ExecuTorch",
+            pteGlob: "*.pte",
             tokenizerRepoId: nil,
             tokenizerGlob: "tokenizer.json",
-            displayName: "Gemma 3 4B IT (HQQ INT8+INT4)",
-            size: "~3.5 GB",
+            displayName: "Gemma 2 2B IT (INT4)",
+            size: "~1.5 GB",
             specialTokens: [],
             promptStyle: .gemma3
         ),
