@@ -10,6 +10,10 @@ struct RAGView: View {
     @State private var benchmark = RAGBenchmark()
     @State private var showBenchmark = false
 
+    /// Sentinel tag for the "Tümü" (all collections) scope, since `Picker`
+    /// selections can't be `nil`.
+    private static let allScopeTag = "__all__"
+
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView {
@@ -325,19 +329,60 @@ struct RAGView: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
-                } else if rag.documentCount > 0 {
-                    Label(
-                        "\(rag.documentCount) doküman indekslendi",
-                        systemImage: "checkmark.circle.fill"
-                    )
-                    .foregroundStyle(.green)
-                    .font(.caption)
+                } else if !rag.collections.isEmpty {
+                    collectionsView
                 }
 
                 if let err = rag.indexError {
                     Label(err, systemImage: "exclamationmark.triangle")
                         .foregroundStyle(.red)
                         .font(.caption)
+                }
+            }
+        }
+    }
+
+    // MARK: - Collections (namespaces)
+
+    private var collectionsView: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Divider()
+            HStack {
+                Label(
+                    "\(rag.documentCount) doküman · diskte kalıcı",
+                    systemImage: "internaldrive"
+                )
+                .font(.caption)
+                .foregroundStyle(.green)
+                Spacer()
+                Button(role: .destructive) {
+                    rag.clearAll()
+                } label: {
+                    Text("Tümünü Temizle").font(.caption)
+                }
+                .disabled(rag.isIndexing)
+            }
+
+            ForEach(rag.collections) { collection in
+                HStack {
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(collection.name)
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .lineLimit(1)
+                        Text("\(collection.documentCount) doküman · \(collection.chunkCount) parça")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Button(role: .destructive) {
+                        rag.deleteCollection(collection.name)
+                    } label: {
+                        Image(systemName: "trash")
+                            .font(.caption)
+                    }
+                    .buttonStyle(.borderless)
+                    .disabled(rag.isIndexing)
                 }
             }
         }
@@ -350,6 +395,31 @@ struct RAGView: View {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Soru")
                     .font(.headline)
+
+                if rag.collections.count > 1 {
+                    HStack(spacing: 8) {
+                        Text("Kapsam")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Picker(
+                            "Kapsam",
+                            selection: Binding(
+                                get: { rag.queryScope ?? Self.allScopeTag },
+                                set: { rag.queryScope = $0 == Self.allScopeTag ? nil : $0 }
+                            )
+                        ) {
+                            Text("Tümü").tag(Self.allScopeTag)
+                            ForEach(rag.collections) { collection in
+                                Text(collection.name).tag(collection.name)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .labelsHidden()
+                        Spacer()
+                    }
+                    .disabled(rag.isSearching || rag.isGenerating)
+                }
+
                 HStack(alignment: .bottom, spacing: 8) {
                     ZStack(alignment: .topTrailing) {
                         TextField("Soru yaz...", text: $rag.query, axis: .vertical)

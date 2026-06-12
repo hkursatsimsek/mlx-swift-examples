@@ -6,6 +6,19 @@ import Foundation
 struct RAGDocument {
     let name: String
     let contents: String
+    /// Source-derived namespace (e.g. selected folder name). Lets the index hold
+    /// several isolated collections at once — the on-device equivalent of a
+    /// per-tenant/per-topic namespace. Defaults to "Genel" for callers that don't
+    /// care about isolation (e.g. the benchmark).
+    var collection: String = "Genel"
+}
+
+/// Lightweight, UI-facing summary of one indexed collection (namespace).
+struct RAGCollectionInfo: Identifiable, Hashable {
+    let name: String
+    let documentCount: Int
+    let chunkCount: Int
+    var id: String { name }
 }
 
 struct RAGChunk: Identifiable {
@@ -40,10 +53,36 @@ struct RAGVectorIndex {
         entries.append(entry)
     }
 
-    func search(query: [Float], topK: Int) -> [RAGSearchResult] {
+    /// Drop every entry belonging to a collection (used on re-index / delete).
+    mutating func removeCollection(_ collection: String) {
+        entries.removeAll { $0.chunk.document.collection == collection }
+    }
+
+    /// Distinct collection names in first-seen order.
+    var collectionNames: [String] {
+        var seen = Set<String>()
+        var ordered: [String] = []
+        for entry in entries {
+            let name = entry.chunk.document.collection
+            if seen.insert(name).inserted { ordered.append(name) }
+        }
+        return ordered
+    }
+
+    func chunkCount(in collection: String) -> Int {
+        entries.reduce(0) { $0 + ($1.chunk.document.collection == collection ? 1 : 0) }
+    }
+
+    /// Search the index. When `collection` is non-nil the scan is scoped to that
+    /// namespace only; otherwise it spans every collection ("Tümü").
+    func search(query: [Float], topK: Int, collection: String? = nil) -> [RAGSearchResult] {
         guard !entries.isEmpty, !query.isEmpty else { return [] }
         let q = sanitize(query)
-        return entries
+        let scope = collection.map { name in
+            entries.filter { $0.chunk.document.collection == name }
+        } ?? entries
+        guard !scope.isEmpty else { return [] }
+        return scope
             .map { entry -> (RAGIndexEntry, Float) in (entry, dot(q, entry.embedding)) }
             .sorted { $0.1 > $1.1 }
             .prefix(topK)

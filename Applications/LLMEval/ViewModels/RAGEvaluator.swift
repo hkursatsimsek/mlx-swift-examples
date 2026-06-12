@@ -38,11 +38,19 @@ class RAGEvaluator {
     var indexError: String?
     var corpusName = ""
 
+    /// One summary per indexed collection (namespace). Drives the corpus list UI
+    /// and the query-scope picker. Kept in sync with `index` and disk.
+    var collections: [RAGCollectionInfo] = []
+
     // MARK: - Query state
 
     var query = ""
     var searchResults: [RAGSearchResult] = []
     var isSearching = false
+
+    /// Which collection a search is restricted to. `nil` = search every
+    /// collection ("Tümü").
+    var queryScope: String?
 
     // MARK: - Generation state
 
@@ -70,12 +78,18 @@ class RAGEvaluator {
             embedderState = .idle
             embedderInfo = ""
             embedderDownloadProgress = nil
+            // Different model = incompatible vector space. Drop the live index and
+            // instead load any collections that were previously persisted *for the
+            // new embedder* (so switching back and forth doesn't force re-indexing).
             index = RAGVectorIndex()
+            collections = []
             documentCount = 0
             corpusName = ""
             searchResults = []
             answer = ""
             indexError = nil
+            queryScope = nil
+            loadPersistedCollections()
         }
     }
 
@@ -86,6 +100,81 @@ class RAGEvaluator {
 
     init(llm: LLMEvaluator) {
         self.llm = llm
+        loadPersistedCollections()
+    }
+
+    // MARK: - Persistence
+
+    /// Rebuild the in-memory index from disk for the current embedder. Cheap
+    /// (JSON read, no embedding) and idempotent. Vectors are already computed, so
+    /// previously indexed corpora are queryable immediately without re-embedding.
+    private func loadPersistedCollections() {
+        let persisted = RAGIndexStore.loadAll(embedderId: selectedEmbedder.id)
+        guard !persisted.isEmpty else { return }
+
+        var rebuilt = RAGVectorIndex()
+        var infos: [RAGCollectionInfo] = []
+        for pc in persisted {
+            for pe in pc.entries {
+                let document = RAGDocument(
+                    name: pe.chunk.documentName, contents: "", collection: pc.name)
+                let chunk = RAGChunk(
+                    document: document, text: pe.chunk.text,
+                    index: pe.chunk.index, totalChunks: pe.chunk.totalChunks)
+                rebuilt.add(RAGIndexEntry(chunk: chunk, embedding: pe.embedding))
+            }
+            infos.append(
+                RAGCollectionInfo(
+                    name: pc.name, documentCount: pc.documentCount,
+                    chunkCount: pc.entries.count))
+        }
+
+        index = rebuilt
+        collections = infos
+        documentCount = infos.reduce(0) { $0 + $1.documentCount }
+        corpusName = infos.count == 1 ? infos[0].name : "\(infos.count) koleksiyon"
+    }
+
+    private func persist(
+        collection: String, entries: [RAGIndexEntry], documentCount: Int
+    ) {
+        let persistedEntries = entries.map { entry in
+            PersistedEntry(
+                chunk: PersistedChunk(
+                    documentName: entry.chunk.document.name, text: entry.chunk.text,
+                    index: entry.chunk.index, totalChunks: entry.chunk.totalChunks),
+                embedding: entry.embedding)
+        }
+        let payload = PersistedCollection(
+            name: collection, embedderId: selectedEmbedder.id,
+            documentCount: documentCount, createdAt: Date(), entries: persistedEntries)
+        do {
+            try RAGIndexStore.save(payload)
+        } catch {
+            indexError = "İndeks diske kaydedilemedi: \(error.localizedDescription)"
+        }
+    }
+
+    /// Remove a single collection from memory and disk.
+    func deleteCollection(_ name: String) {
+        index.removeCollection(name)
+        collections.removeAll { $0.name == name }
+        documentCount = collections.reduce(0) { $0 + $1.documentCount }
+        if queryScope == name { queryScope = nil }
+        if collections.isEmpty { corpusName = "" }
+        RAGIndexStore.delete(name: name, embedderId: selectedEmbedder.id)
+    }
+
+    /// Wipe every collection for the current embedder (memory + disk).
+    func clearAll() {
+        index = RAGVectorIndex()
+        collections = []
+        documentCount = 0
+        corpusName = ""
+        searchResults = []
+        answer = ""
+        queryScope = nil
+        RAGIndexStore.deleteAll(embedderId: selectedEmbedder.id)
     }
 
     // MARK: - Embedder loading
@@ -187,39 +276,48 @@ class RAGEvaluator {
             return
         }
 
-        corpusName =
+        let collectionName =
             displayName
             ?? (urls.count == 1
                 ? urls[0].lastPathComponent : "\(documents.count) doküman")
-        await buildIndexFromDocuments(documents)
+        corpusName = collectionName
+        let stamped = documents.map {
+            RAGDocument(name: $0.name, contents: $0.contents, collection: collectionName)
+        }
+        await buildIndexFromDocuments(stamped)
     }
 
     func useBundledDocs(selectedNames: [String]) {
+        let collectionName = "Örnek Dokümanlar"
         let docs = selectedNames.compactMap { name -> RAGDocument? in
             guard let url = Bundle.main.url(forResource: name, withExtension: "txt"),
                 let contents = try? String(contentsOf: url, encoding: .utf8),
                 !contents.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             else { return nil }
-            return RAGDocument(name: "\(name).txt", contents: contents)
+            return RAGDocument(
+                name: "\(name).txt", contents: contents, collection: collectionName)
         }
         guard !docs.isEmpty else {
             indexError = "Örnek dokümanlar uygulama paketinde bulunamadı."
             return
         }
-        corpusName = "Örnek Dokümanlar"
+        corpusName = collectionName
         Task { await buildIndexFromDocuments(docs) }
     }
 
     // MARK: - Indexing
 
+    /// Embed `documents` and add them as a collection. The collection name comes
+    /// from `RAGDocument.collection` (stamped at load time). Unlike before, this
+    /// **accumulates** — existing collections are kept — and persists the new
+    /// collection to disk so it survives app restarts.
     func buildIndexFromDocuments(_ documents: [RAGDocument]) async {
         guard !isIndexing else { return }
+        let collectionName = documents.first?.collection ?? corpusName
 
         isIndexing = true
         indexingProgress = 0
         indexError = nil
-        index = RAGVectorIndex()
-        documentCount = 0
         searchResults = []
         answer = ""
 
@@ -234,7 +332,7 @@ class RAGEvaluator {
             }
 
             let batchSize = 8
-            var newIndex = RAGVectorIndex()
+            var newEntries: [RAGIndexEntry] = []
             var processed = 0
 
             var batchStart = 0
@@ -248,7 +346,7 @@ class RAGEvaluator {
                 for (i, vector) in vectors.enumerated() {
                     guard batch.indices.contains(i) else { continue }
                     let normalized = RAGEmbedding.normalize(vector)
-                    newIndex.add(RAGIndexEntry(chunk: batch[i], embedding: normalized))
+                    newEntries.append(RAGIndexEntry(chunk: batch[i], embedding: normalized))
                 }
 
                 processed += batch.count
@@ -256,8 +354,20 @@ class RAGEvaluator {
                 batchStart = batchEnd
             }
 
-            self.index = newIndex
-            documentCount = documents.count
+            // Re-index = replace the same-named collection in place, keep others.
+            index.removeCollection(collectionName)
+            for entry in newEntries { index.add(entry) }
+
+            collections.removeAll { $0.name == collectionName }
+            collections.append(
+                RAGCollectionInfo(
+                    name: collectionName, documentCount: documents.count,
+                    chunkCount: newEntries.count))
+            documentCount = collections.reduce(0) { $0 + $1.documentCount }
+
+            persist(
+                collection: collectionName, entries: newEntries,
+                documentCount: documents.count)
 
         } catch {
             indexError = error.localizedDescription
@@ -290,7 +400,8 @@ class RAGEvaluator {
                 }
 
                 let normalizedQuery = RAGEmbedding.normalize(rawVector)
-                searchResults = index.search(query: normalizedQuery, topK: 5)
+                searchResults = index.search(
+                    query: normalizedQuery, topK: 5, collection: queryScope)
                 isSearching = false
 
                 guard !searchResults.isEmpty else {
